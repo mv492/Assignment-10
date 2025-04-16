@@ -178,3 +178,64 @@ def test_nickname_length_too_long(nickname, base_user_data):
     with pytest.raises(ValidationError) as exc_info:
         UserBase(**data)
     assert "no more than 20 characters" in str(exc_info.value)
+
+def test_valid_password(user_create_data):
+    user = UserCreate(**user_create_data)
+    assert user.password == user_create_data["password"]
+
+# Test for passwords that are too short.
+@pytest.mark.parametrize("password", [
+    "S*1a",       # Less than 8 characters.
+    "Ab1!"        # Only 4 characters.
+])
+def test_password_too_short(user_create_data, password):
+    data = user_create_data.copy()
+    data["password"] = password
+    with pytest.raises(ValidationError) as exc_info:
+        UserCreate(**data)
+    assert "at least 8 characters" in str(exc_info.value)
+
+# Test for passwords missing an uppercase letter.
+@pytest.mark.parametrize("password", [
+    "secure*1234",  # No uppercase letters.
+])
+def test_password_missing_uppercase(user_create_data, password):
+    data = user_create_data.copy()
+    data["password"] = password
+    with pytest.raises(ValidationError) as exc_info:
+        UserCreate(**data)
+    assert "at least one uppercase letter" in str(exc_info.value)
+
+# Test for passwords missing a lowercase letter.
+@pytest.mark.parametrize("password", [
+    "SECURE*1234",  # No lowercase letters.
+])
+def test_password_missing_lowercase(user_create_data, password):
+    data = user_create_data.copy()
+    data["password"] = password
+    with pytest.raises(ValidationError) as exc_info:
+        UserCreate(**data)
+    assert "at least one lowercase letter" in str(exc_info.value)
+
+# Test for passwords missing a digit.
+@pytest.mark.parametrize("password", [
+    "Secure*abcd",  # No digits.
+])
+def test_password_missing_digit(user_create_data, password):
+    data = user_create_data.copy()
+    data["password"] = password
+    with pytest.raises(ValidationError) as exc_info:
+        UserCreate(**data)
+    assert "at least one number" in str(exc_info.value)
+
+# Test for passwords missing a special character.
+@pytest.mark.parametrize("password", [
+    "Secure1234",  # No special characters.
+])
+def test_password_missing_special(user_create_data, password):
+    data = user_create_data.copy()
+    data["password"] = password
+    with pytest.raises(ValidationError) as exc_info:
+        UserCreate(**data)
+    assert "at least one special character" in str(exc_info.value)
+    
