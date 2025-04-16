@@ -1,4 +1,4 @@
-from builtins import ValueError, any, bool, str
+from builtins import ValueError
 from pydantic import BaseModel, EmailStr, Field, validator, root_validator
 from typing import Optional, List
 from datetime import datetime
@@ -24,16 +24,36 @@ def validate_url(url: Optional[str]) -> Optional[str]:
 
 class UserBase(BaseModel):
     email: EmailStr = Field(..., example="john.doe@example.com")
-    nickname: Optional[str] = Field(None, min_length=3, pattern=r'^[\w-]+$', example=generate_nickname())
+    # Using default_factory to auto-generate a nickname if not provided,
+    # and marking the field as required (removing Optional)
+    nickname: str = Field(default_factory=generate_nickname, min_length=3, pattern=r'^[\w-]+$', 
+                          example=generate_nickname())
     first_name: Optional[str] = Field(None, example="John")
     last_name: Optional[str] = Field(None, example="Doe")
     bio: Optional[str] = Field(None, example="Experienced software developer specializing in web applications.")
     profile_picture_url: Optional[str] = Field(None, example="https://example.com/profiles/john.jpg")
-    linkedin_profile_url: Optional[str] =Field(None, example="https://linkedin.com/in/johndoe")
+    linkedin_profile_url: Optional[str] = Field(None, example="https://linkedin.com/in/johndoe")
     github_profile_url: Optional[str] = Field(None, example="https://github.com/johndoe")
 
-    _validate_urls = validator('profile_picture_url', 'linkedin_profile_url', 'github_profile_url', pre=True, allow_reuse=True)(validate_url)
- 
+    # URL validation for all URL fields
+    _validate_urls = validator(
+        'profile_picture_url', 'linkedin_profile_url', 'github_profile_url',
+        pre=True, allow_reuse=True
+    )(validate_url)
+    
+    @validator('nickname')
+    def validate_nickname(cls, value):
+        # Although min_length and regex are checked by Field, this validator
+        # allows for custom error messages and any additional logic.
+        if value is None:
+            # This block should not normally be reached because of default_factory.
+            raise ValueError("Nickname must be provided or auto-generated.")
+        if len(value) < 3:
+            raise ValueError("Nickname must be at least 3 characters long.")
+        if not re.match(r'^[\w-]+$', value):
+            raise ValueError("Nickname must only contain letters, numbers, underscores, or dashes.")
+        return value
+
     class Config:
         from_attributes = True
 
@@ -48,7 +68,7 @@ class UserUpdate(UserBase):
     last_name: Optional[str] = Field(None, example="Doe")
     bio: Optional[str] = Field(None, example="Experienced software developer specializing in web applications.")
     profile_picture_url: Optional[str] = Field(None, example="https://example.com/profiles/john.jpg")
-    linkedin_profile_url: Optional[str] =Field(None, example="https://linkedin.com/in/johndoe")
+    linkedin_profile_url: Optional[str] = Field(None, example="https://linkedin.com/in/johndoe")
     github_profile_url: Optional[str] = Field(None, example="https://github.com/johndoe")
 
     @root_validator(pre=True)
@@ -61,7 +81,9 @@ class UserResponse(UserBase):
     id: uuid.UUID = Field(..., example=uuid.uuid4())
     role: UserRole = Field(default=UserRole.AUTHENTICATED, example="AUTHENTICATED")
     email: EmailStr = Field(..., example="john.doe@example.com")
-    nickname: Optional[str] = Field(None, min_length=3, pattern=r'^[\w-]+$', example=generate_nickname())    
+    # Redefine nickname here if you need to enforce the same logic on responses.
+    nickname: str = Field(default_factory=generate_nickname, min_length=3, pattern=r'^[\w-]+$', 
+                          example=generate_nickname())
     role: UserRole = Field(default=UserRole.AUTHENTICATED, example="AUTHENTICATED")
     is_professional: Optional[bool] = Field(default=False, example=True)
 
@@ -76,8 +98,7 @@ class ErrorResponse(BaseModel):
 class UserListResponse(BaseModel):
     items: List[UserResponse] = Field(..., example=[{
         "id": uuid.uuid4(), "nickname": generate_nickname(), "email": "john.doe@example.com",
-        "first_name": "John", "bio": "Experienced developer", "role": "AUTHENTICATED",
-        "last_name": "Doe", "bio": "Experienced developer", "role": "AUTHENTICATED",
+        "first_name": "John", "last_name": "Doe", "bio": "Experienced developer", "role": "AUTHENTICATED",
         "profile_picture_url": "https://example.com/profiles/john.jpg", 
         "linkedin_profile_url": "https://linkedin.com/in/johndoe", 
         "github_profile_url": "https://github.com/johndoe"
