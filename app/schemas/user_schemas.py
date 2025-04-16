@@ -24,10 +24,8 @@ def validate_url(url: Optional[str]) -> Optional[str]:
 
 class UserBase(BaseModel):
     email: EmailStr = Field(..., example="john.doe@example.com")
-    # Using default_factory to auto-generate a nickname if not provided,
-    # and marking the field as required (removing Optional)
-    nickname: str = Field(default_factory=generate_nickname, min_length=3, pattern=r'^[\w-]+$', 
-                          example=generate_nickname())
+    # Removed pattern, min_length, and max_length constraints from Field.
+    nickname: str = Field(default_factory=generate_nickname, example=generate_nickname())
     first_name: Optional[str] = Field(None, example="John")
     last_name: Optional[str] = Field(None, example="Doe")
     bio: Optional[str] = Field(None, example="Experienced software developer specializing in web applications.")
@@ -35,7 +33,8 @@ class UserBase(BaseModel):
     linkedin_profile_url: Optional[str] = Field(None, example="https://linkedin.com/in/johndoe")
     github_profile_url: Optional[str] = Field(None, example="https://github.com/johndoe")
 
-    # URL validation for all URL fields
+
+    # URL validation for all URL fields.
     _validate_urls = validator(
         'profile_picture_url', 'linkedin_profile_url', 'github_profile_url',
         pre=True, allow_reuse=True
@@ -43,13 +42,12 @@ class UserBase(BaseModel):
     
     @validator('nickname')
     def validate_nickname(cls, value):
-        # Although min_length and regex are checked by Field, this validator
-        # allows for custom error messages and any additional logic.
         if value is None:
-            # This block should not normally be reached because of default_factory.
             raise ValueError("Nickname must be provided or auto-generated.")
         if len(value) < 3:
             raise ValueError("Nickname must be at least 3 characters long.")
+        if len(value) > 20:
+            raise ValueError("Nickname must be no more than 20 characters long.")
         if not re.match(r'^[\w-]+$', value):
             raise ValueError("Nickname must only contain letters, numbers, underscores, or dashes.")
         return value
@@ -63,7 +61,8 @@ class UserCreate(UserBase):
 
 class UserUpdate(UserBase):
     email: Optional[EmailStr] = Field(None, example="john.doe@example.com")
-    nickname: Optional[str] = Field(None, min_length=3, pattern=r'^[\w-]+$', example="john_doe123")
+    # Remove length and pattern constraints here as well.
+    nickname: Optional[str] = Field(None, example="john_doe123")
     first_name: Optional[str] = Field(None, example="John")
     last_name: Optional[str] = Field(None, example="Doe")
     bio: Optional[str] = Field(None, example="Experienced software developer specializing in web applications.")
@@ -81,9 +80,8 @@ class UserResponse(UserBase):
     id: uuid.UUID = Field(..., example=uuid.uuid4())
     role: UserRole = Field(default=UserRole.AUTHENTICATED, example="AUTHENTICATED")
     email: EmailStr = Field(..., example="john.doe@example.com")
-    # Redefine nickname here if you need to enforce the same logic on responses.
-    nickname: str = Field(default_factory=generate_nickname, min_length=3, pattern=r'^[\w-]+$', 
-                          example=generate_nickname())
+    # Redefine nickname; remove field-level constraints.
+    nickname: str = Field(default_factory=generate_nickname, example=generate_nickname())
     role: UserRole = Field(default=UserRole.AUTHENTICATED, example="AUTHENTICATED")
     is_professional: Optional[bool] = Field(default=False, example=True)
 

@@ -143,3 +143,38 @@ def test_special_characters_in_nickname_valid(nickname, base_user_data):
     data["nickname"] = nickname
     user = UserBase(**data)
     assert user.nickname == nickname
+
+@pytest.mark.parametrize("nickname", [
+    "abc",                 # Minimum valid length: 3 characters.
+    "validNickname",       # Normal valid length.
+    "abcdefghijklmnopqrst" # Exactly 20 characters.
+])
+def test_nickname_length_valid(nickname, base_user_data):
+    data = base_user_data.copy()
+    data["nickname"] = nickname
+    user = UserBase(**data)
+    assert user.nickname == nickname
+
+# Test nickname too short (less than 3 characters).
+@pytest.mark.parametrize("nickname", [
+    "ab",  # 2 characters only.
+    ""     # Empty string.
+])
+def test_nickname_length_too_short(nickname, base_user_data):
+    data = base_user_data.copy()
+    data["nickname"] = nickname
+    with pytest.raises(ValidationError) as exc_info:
+        UserBase(**data)
+    assert "at least 3 characters" in str(exc_info.value)
+
+# Test nickname too long (more than 20 characters).
+@pytest.mark.parametrize("nickname", [
+    "abcdefghijklmnopqrstu",  # 21 characters.
+    "thisnicknameiswaytoolongtobevalid"  # Exceeds the max length.
+])
+def test_nickname_length_too_long(nickname, base_user_data):
+    data = base_user_data.copy()
+    data["nickname"] = nickname
+    with pytest.raises(ValidationError) as exc_info:
+        UserBase(**data)
+    assert "no more than 20 characters" in str(exc_info.value)
