@@ -79,7 +79,7 @@ def test_user_base_invalid_email(user_base_data_invalid):
     
     assert "value is not a valid email address" in str(exc_info.value)
     assert "john.doe.example.com" in str(exc_info.value)
-    
+
 # Test: When no nickname is provided, the default factory should generate one automatically.
 def test_default_nickname_generated(base_user_data):
     # Remove nickname key if present
@@ -116,3 +116,30 @@ def test_invalid_nicknames(base_user_data, nickname):
     data["nickname"] = nickname
     with pytest.raises(ValidationError):
         UserBase(**data)
+
+@pytest.mark.parametrize("nickname, invalid_char", [
+    ("user#name", "#"),
+    ("user$name", "$"),
+    ("user^name", "^"),
+    ("user&name", "&"),
+    ("user name", " ")  # spaces are not allowed
+])
+def test_special_characters_in_nickname_invalid(nickname, invalid_char, base_user_data):
+    data = base_user_data.copy()
+    data["nickname"] = nickname
+    with pytest.raises(ValidationError) as exc_info:
+        UserBase(**data)
+    # Ensure the error message contains the invalid character.
+    assert invalid_char in str(exc_info.value)
+
+# Test cases for valid nicknames that include only allowed characters.
+@pytest.mark.parametrize("nickname", [
+    "user_name",   # underscore allowed
+    "user-name",   # dash allowed
+    "username123"  # simple alphanumeric nickname
+])
+def test_special_characters_in_nickname_valid(nickname, base_user_data):
+    data = base_user_data.copy()
+    data["nickname"] = nickname
+    user = UserBase(**data)
+    assert user.nickname == nickname
