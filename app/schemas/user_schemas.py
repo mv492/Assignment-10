@@ -33,7 +33,6 @@ class UserBase(BaseModel):
     linkedin_profile_url: Optional[str] = Field(None, example="https://linkedin.com/in/johndoe")
     github_profile_url: Optional[str] = Field(None, example="https://github.com/johndoe")
 
-
     # URL validation for all URL fields.
     _validate_urls = validator(
         'profile_picture_url', 'linkedin_profile_url', 'github_profile_url',
@@ -58,6 +57,25 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     email: EmailStr = Field(..., example="john.doe@example.com")
     password: str = Field(..., example="Secure*1234")
+
+    @validator('password')
+    def validate_password(cls, value):
+        # Check minimum length.
+        if len(value) < 8:
+            raise ValueError("Password must be at least 8 characters long.")
+        # Check for at least one uppercase letter.
+        if not re.search(r'[A-Z]', value):
+            raise ValueError("Password must contain at least one uppercase letter.")
+        # Check for at least one lowercase letter.
+        if not re.search(r'[a-z]', value):
+            raise ValueError("Password must contain at least one lowercase letter.")
+        # Check for at least one digit.
+        if not re.search(r'\d', value):
+            raise ValueError("Password must contain at least one number.")
+        # Check for at least one special character.
+        if not re.search(r'[!@#$%^&*(),.?":{}|<>]', value):
+            raise ValueError("Password must contain at least one special character.")
+        return value
 
 class UserUpdate(UserBase):
     email: Optional[EmailStr] = Field(None, example="john.doe@example.com")
