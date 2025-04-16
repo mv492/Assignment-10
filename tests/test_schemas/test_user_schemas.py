@@ -294,3 +294,49 @@ def test_login_request_valid(login_request_data):
     login = LoginRequest(**login_request_data)
     assert login.email == login_request_data["email"]
     assert login.password == login_request_data["password"]
+
+@pytest.fixture
+def base_user_data():
+    return {
+        "email": "john.doe@example.com",
+        "first_name": "John",
+        "last_name": "Doe",
+        "bio": "Experienced developer.",
+        "profile_picture_url": "https://example.com/profiles/john.jpg",
+        "linkedin_profile_url": "https://linkedin.com/in/johndoe",
+        "github_profile_url": "https://github.com/johndoe"
+    }
+
+# (Other tests for validation, nickname, URL, password, etc. remain unchanged.)
+
+# New tests to check that the JSON schema examples match fixed values.
+def test_userbase_schema_examples():
+    schema = UserBase.schema()
+    props = schema.get("properties", {})
+    assert props.get("email", {}).get("example") == "john.doe@example.com"
+    # Here we assume that even though nickname has a default_factory,
+    # the example is fixed to "john_doe"
+    assert props.get("nickname", {}).get("example") == "john_doe"
+    assert props.get("first_name", {}).get("example") == "John"
+    assert props.get("last_name", {}).get("example") == "Doe"
+    assert props.get("bio", {}).get("example") == "Experienced developer specializing in web applications."
+    assert props.get("profile_picture_url", {}).get("example") == "https://example.com/profiles/john.jpg"
+    assert props.get("linkedin_profile_url", {}).get("example") == "https://linkedin.com/in/johndoe"
+    assert props.get("github_profile_url", {}).get("example") == "https://github.com/johndoe"
+
+def test_usercreate_schema_examples():
+    schema = UserCreate.schema()
+    props = schema.get("properties", {})
+    assert props.get("email", {}).get("example") == "john.doe@example.com"
+    # The example for nickname is fixed.
+    assert props.get("nickname", {}).get("example") == "john_doe"
+    assert props.get("password", {}).get("example") == "Secure*1234"
+
+def test_userresponse_schema_examples():
+    schema = UserResponse.schema()
+    props = schema.get("properties", {})
+    # Check that the fixed example for id is as defined.
+    assert props.get("id", {}).get("example") == "a4b1c2d3-e4f5-6789-0123-456789abcdef"
+    assert props.get("role", {}).get("example") == "AUTHENTICATED"
+    assert props.get("email", {}).get("example") == "john.doe@example.com"
+    assert props.get("nickname", {}).get("example") == "john_doe"

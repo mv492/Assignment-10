@@ -6,9 +6,11 @@ from enum import Enum
 import uuid
 import re
 
+# We'll still import the nickname generator for the default if not provided,
+# but we set the example to a fixed string.
 from app.utils.nickname_gen import generate_nickname
 
-# Global sets to simulate uniqueness.
+# Global sets to simulate uniqueness (if needed).
 _existing_emails = set()
 _existing_nicknames = set()
 
@@ -28,16 +30,17 @@ def validate_url(url: Optional[str]) -> Optional[str]:
 
 class UserBase(BaseModel):
     email: EmailStr = Field(..., example="john.doe@example.com")
-    # Removed built-in constraints from Field.
-    nickname: str = Field(default_factory=generate_nickname, example=generate_nickname())
+    # Here we use a default factory for the value (if needed)
+    # but we fix the example to a constant.
+    nickname: str = Field(default_factory=generate_nickname, example="john_doe")
     first_name: Optional[str] = Field(None, example="John")
     last_name: Optional[str] = Field(None, example="Doe")
-    bio: Optional[str] = Field(None, example="Experienced software developer specializing in web applications.")
+    bio: Optional[str] = Field(None, example="Experienced developer specializing in web applications.")
     profile_picture_url: Optional[str] = Field(None, example="https://example.com/profiles/john.jpg")
     linkedin_profile_url: Optional[str] = Field(None, example="https://linkedin.com/in/johndoe")
     github_profile_url: Optional[str] = Field(None, example="https://github.com/johndoe")
 
-    # URL validation for all URL fields.
+    # URL validation for the URL fields.
     _validate_urls = validator(
         'profile_picture_url', 'linkedin_profile_url', 'github_profile_url',
         pre=True, allow_reuse=True
@@ -78,30 +81,25 @@ class UserCreate(UserBase):
 
     @validator('password')
     def validate_password(cls, value):
-        # Minimum length check.
         if len(value) < 8:
             raise ValueError("Password must be at least 8 characters long.")
-        # Must contain at least one uppercase letter.
         if not re.search(r'[A-Z]', value):
             raise ValueError("Password must contain at least one uppercase letter.")
-        # Must contain at least one lowercase letter.
         if not re.search(r'[a-z]', value):
             raise ValueError("Password must contain at least one lowercase letter.")
-        # Must contain at least one digit.
         if not re.search(r'\d', value):
             raise ValueError("Password must contain at least one number.")
-        # Must contain at least one special character.
         if not re.search(r'[!@#$%^&*(),.?":{}|<>]', value):
             raise ValueError("Password must contain at least one special character.")
         return value
 
 class UserUpdate(UserBase):
     email: Optional[EmailStr] = Field(None, example="john.doe@example.com")
-    # Remove built-in constraints here as well.
-    nickname: Optional[str] = Field(None, example="john_doe123")
+    # No uniqueness checking on updates here.
+    nickname: Optional[str] = Field(None, example="john_doe")
     first_name: Optional[str] = Field(None, example="John")
     last_name: Optional[str] = Field(None, example="Doe")
-    bio: Optional[str] = Field(None, example="Experienced software developer specializing in web applications.")
+    bio: Optional[str] = Field(None, example="Experienced developer specializing in web applications.")
     profile_picture_url: Optional[str] = Field(None, example="https://example.com/profiles/john.jpg")
     linkedin_profile_url: Optional[str] = Field(None, example="https://linkedin.com/in/johndoe")
     github_profile_url: Optional[str] = Field(None, example="https://github.com/johndoe")
@@ -113,11 +111,10 @@ class UserUpdate(UserBase):
         return values
 
 class UserResponse(UserBase):
-    id: uuid.UUID = Field(..., example=uuid.uuid4())
+    id: uuid.UUID = Field(..., example="a4b1c2d3-e4f5-6789-0123-456789abcdef")
     role: UserRole = Field(default=UserRole.AUTHENTICATED, example="AUTHENTICATED")
     email: EmailStr = Field(..., example="john.doe@example.com")
-    # Redefine nickname; no built-in constraints.
-    nickname: str = Field(default_factory=generate_nickname, example=generate_nickname())
+    nickname: str = Field(default_factory=generate_nickname, example="john_doe")
     role: UserRole = Field(default=UserRole.AUTHENTICATED, example="AUTHENTICATED")
     is_professional: Optional[bool] = Field(default=False, example=True)
 
@@ -131,10 +128,15 @@ class ErrorResponse(BaseModel):
 
 class UserListResponse(BaseModel):
     items: List[UserResponse] = Field(..., example=[{
-        "id": uuid.uuid4(), "nickname": generate_nickname(), "email": "john.doe@example.com",
-        "first_name": "John", "last_name": "Doe", "bio": "Experienced developer", "role": "AUTHENTICATED",
-        "profile_picture_url": "https://example.com/profiles/john.jpg", 
-        "linkedin_profile_url": "https://linkedin.com/in/johndoe", 
+        "id": "a4b1c2d3-e4f5-6789-0123-456789abcdef",
+        "nickname": "john_doe",
+        "email": "john.doe@example.com",
+        "first_name": "John",
+        "last_name": "Doe",
+        "bio": "Experienced developer specializing in web applications.",
+        "role": "AUTHENTICATED",
+        "profile_picture_url": "https://example.com/profiles/john.jpg",
+        "linkedin_profile_url": "https://linkedin.com/in/johndoe",
         "github_profile_url": "https://github.com/johndoe"
     }])
     total: int = Field(..., example=100)
