@@ -2,8 +2,10 @@ import pytest
 from pydantic import ValidationError
 from builtins import str
 from datetime import datetime
-from app.schemas.user_schemas import UserBase, UserCreate, UserUpdate, UserResponse, UserListResponse, LoginRequest
-
+from app.schemas.user_schemas import (
+    UserBase, UserCreate, UserUpdate, UserResponse, UserListResponse, LoginRequest,
+    _existing_emails, _existing_nicknames
+)
 # A fixture providing the base set of user data (without the nickname field)
 @pytest.fixture
 def base_user_data():
@@ -238,4 +240,57 @@ def test_password_missing_special(user_create_data, password):
     with pytest.raises(ValidationError) as exc_info:
         UserCreate(**data)
     assert "at least one special character" in str(exc_info.value)
-    
+
+@pytest.fixture(autouse=True)
+def reset_uniqueness():
+    _existing_emails.clear()
+    _existing_nicknames.clear()
+
+# Tests for UserBase
+def test_user_base_valid(user_base_data):
+    user = UserBase(**user_base_data)
+    assert user.nickname == user_base_data["nickname"]
+    assert user.email == user_base_data["email"]
+
+# Tests for UserCreate
+def test_user_create_valid(user_create_data):
+    user = UserCreate(**user_create_data)
+    assert user.nickname == user_create_data["nickname"]
+    assert user.password == user_create_data["password"]
+
+# Tests for uniqueness: Duplicate email should fail.
+def test_unique_email(user_create_data):
+    # Create the first user.
+    UserCreate(**user_create_data)
+    # Attempt to create a second user with the same email.
+    with pytest.raises(ValidationError) as exc_info:
+        UserCreate(**user_create_data)
+    assert "Email already exists" in str(exc_info.value)
+
+# Tests for uniqueness: Duplicate nickname should fail.
+def test_unique_nickname(user_create_data):
+    # Create the first user.
+    UserCreate(**user_create_data)
+    # Create a new user with a different email but same nickname.
+    new_data = user_create_data.copy()
+    new_data["email"] = "different@example.com"
+    with pytest.raises(ValidationError) as exc_info:
+        UserCreate(**new_data)
+    assert "Nickname already exists" in str(exc_info.value)
+
+# Tests for UserUpdate
+def test_user_update_valid(user_update_data):
+    user_update = UserUpdate(**user_update_data)
+    assert user_update.email == user_update_data["email"]
+    assert user_update.first_name == user_update_data["first_name"]
+
+# Tests for UserResponse
+def test_user_response_valid(user_response_data):
+    user = UserResponse(**user_response_data)
+    assert user.id == user_response_data["id"]
+
+# Tests for LoginRequest
+def test_login_request_valid(login_request_data):
+    login = LoginRequest(**login_request_data)
+    assert login.email == login_request_data["email"]
+    assert login.password == login_request_data["password"]
