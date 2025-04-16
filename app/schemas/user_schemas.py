@@ -8,6 +8,10 @@ import re
 
 from app.utils.nickname_gen import generate_nickname
 
+# Global sets to simulate uniqueness.
+_existing_emails = set()
+_existing_nicknames = set()
+
 class UserRole(str, Enum):
     ANONYMOUS = "ANONYMOUS"
     AUTHENTICATED = "AUTHENTICATED"
@@ -24,7 +28,7 @@ def validate_url(url: Optional[str]) -> Optional[str]:
 
 class UserBase(BaseModel):
     email: EmailStr = Field(..., example="john.doe@example.com")
-    # Removed pattern, min_length, and max_length constraints from Field.
+    # Removed built-in constraints from Field.
     nickname: str = Field(default_factory=generate_nickname, example=generate_nickname())
     first_name: Optional[str] = Field(None, example="John")
     last_name: Optional[str] = Field(None, example="Doe")
@@ -58,28 +62,42 @@ class UserCreate(UserBase):
     email: EmailStr = Field(..., example="john.doe@example.com")
     password: str = Field(..., example="Secure*1234")
 
+    @validator('email')
+    def validate_unique_email(cls, value):
+        if value in _existing_emails:
+            raise ValueError("Email already exists.")
+        _existing_emails.add(value)
+        return value
+
+    @validator('nickname')
+    def validate_unique_nickname(cls, value):
+        if value in _existing_nicknames:
+            raise ValueError("Nickname already exists.")
+        _existing_nicknames.add(value)
+        return value
+
     @validator('password')
     def validate_password(cls, value):
-        # Check minimum length.
+        # Minimum length check.
         if len(value) < 8:
             raise ValueError("Password must be at least 8 characters long.")
-        # Check for at least one uppercase letter.
+        # Must contain at least one uppercase letter.
         if not re.search(r'[A-Z]', value):
             raise ValueError("Password must contain at least one uppercase letter.")
-        # Check for at least one lowercase letter.
+        # Must contain at least one lowercase letter.
         if not re.search(r'[a-z]', value):
             raise ValueError("Password must contain at least one lowercase letter.")
-        # Check for at least one digit.
+        # Must contain at least one digit.
         if not re.search(r'\d', value):
             raise ValueError("Password must contain at least one number.")
-        # Check for at least one special character.
+        # Must contain at least one special character.
         if not re.search(r'[!@#$%^&*(),.?":{}|<>]', value):
             raise ValueError("Password must contain at least one special character.")
         return value
 
 class UserUpdate(UserBase):
     email: Optional[EmailStr] = Field(None, example="john.doe@example.com")
-    # Remove length and pattern constraints here as well.
+    # Remove built-in constraints here as well.
     nickname: Optional[str] = Field(None, example="john_doe123")
     first_name: Optional[str] = Field(None, example="John")
     last_name: Optional[str] = Field(None, example="Doe")
@@ -98,7 +116,7 @@ class UserResponse(UserBase):
     id: uuid.UUID = Field(..., example=uuid.uuid4())
     role: UserRole = Field(default=UserRole.AUTHENTICATED, example="AUTHENTICATED")
     email: EmailStr = Field(..., example="john.doe@example.com")
-    # Redefine nickname; remove field-level constraints.
+    # Redefine nickname; no built-in constraints.
     nickname: str = Field(default_factory=generate_nickname, example=generate_nickname())
     role: UserRole = Field(default=UserRole.AUTHENTICATED, example="AUTHENTICATED")
     is_professional: Optional[bool] = Field(default=False, example=True)
