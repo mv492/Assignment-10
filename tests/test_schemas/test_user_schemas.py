@@ -1,9 +1,21 @@
-from builtins import str
 import pytest
 from pydantic import ValidationError
+from builtins import str
 from datetime import datetime
 from app.schemas.user_schemas import UserBase, UserCreate, UserUpdate, UserResponse, UserListResponse, LoginRequest
 
+# A fixture providing the base set of user data (without the nickname field)
+@pytest.fixture
+def base_user_data():
+    return {
+        "email": "john.doe@example.com",
+        "first_name": "John",
+        "last_name": "Doe",
+        "bio": "Experienced developer.",
+        "profile_picture_url": "https://example.com/profiles/john.jpg",
+        "linkedin_profile_url": "https://linkedin.com/in/johndoe",
+        "github_profile_url": "https://github.com/johndoe"
+    }
 # Tests for UserBase
 def test_user_base_valid(user_base_data):
     user = UserBase(**user_base_data)
@@ -67,3 +79,40 @@ def test_user_base_invalid_email(user_base_data_invalid):
     
     assert "value is not a valid email address" in str(exc_info.value)
     assert "john.doe.example.com" in str(exc_info.value)
+    
+# Test: When no nickname is provided, the default factory should generate one automatically.
+def test_default_nickname_generated(base_user_data):
+    # Remove nickname key if present
+    data = base_user_data.copy()
+    data.pop("nickname", None)
+    
+    user = UserBase(**data)
+    assert user.nickname is not None, "The default nickname should not be None."
+    assert len(user.nickname) >= 3, "The default nickname should have at least 3 characters."
+
+# Parametrized test for valid nicknames that should pass the validation.
+@pytest.mark.parametrize("nickname", [
+    "validNick",  # simple alphanumeric
+    "test_user",  # underscore allowed
+    "user-123",   # dash allowed
+    "ABC"         # exactly 3 characters, all letters
+])
+def test_valid_nicknames(base_user_data, nickname):
+    data = base_user_data.copy()
+    data["nickname"] = nickname
+    user = UserBase(**data)
+    # If no exception is raised, the nickname is valid.
+    assert user.nickname == nickname
+
+# Parametrized test for invalid nicknames that should raise a ValidationError.
+@pytest.mark.parametrize("nickname", [
+    "invalid nick",   # contains a space
+    "test@user",      # contains a disallowed character (@)
+    "ab",             # less than 3 characters
+    ""                # empty string
+])
+def test_invalid_nicknames(base_user_data, nickname):
+    data = base_user_data.copy()
+    data["nickname"] = nickname
+    with pytest.raises(ValidationError):
+        UserBase(**data)
